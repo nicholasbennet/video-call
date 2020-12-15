@@ -122,6 +122,8 @@ def end_call():
   SendAudioThread.join()
   RecieveFrameThread.join()
   RecieveAudioThread.join()
+  clientAudioSocket.close()
+  clientVideoSocket.close()
 
 
 root = Tk.Tk()
