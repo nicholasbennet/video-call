@@ -2,7 +2,7 @@ from socket import socket, AF_INET, SOCK_STREAM
 from threading import Thread
 import struct
 
-HOST = input("Enter Host IP\n")
+HOST = '127.0.0.1'
 PORT_VIDEO = 3000
 PORT_AUDIO = 4000
 lnF = 640*480*3
@@ -73,7 +73,6 @@ def recvall(clientVideo, BufferSize):
                 i += len(databytes)
                 if BufferSize != 4:
                     broadcastVideo(clientVideo, databytes)
-        print("YES!!!!!!!!!" if i == BufferSize else "NO!!!!!!!!!!!!")
         if BufferSize == 4:
             broadcastVideo(clientVideo, databytes)
             return databytes

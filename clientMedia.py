@@ -1,14 +1,13 @@
 import cv2
 from socket import socket, AF_INET, SOCK_STREAM
-from imutils.video import WebcamVideoStream
 import pyaudio
-from array import array
 from threading import Thread
 import numpy as np
-import zlib
 import struct
+import tkinter as Tk
+from PIL import Image, ImageTk
 
-HOST = input("Enter Server IP\n")
+HOST = '52.21.167.84'
 PORT_VIDEO = 3000
 PORT_AUDIO = 4000
 
@@ -19,21 +18,24 @@ FORMAT=pyaudio.paInt16
 CHANNELS=2
 RATE=44100
 
+CONTINUE = True
+QUIT = False
+
 def SendAudio():
     while True:
-        data = stream.read(CHUNK)
-        dataChunk = array('h', data)
-        vol = max(dataChunk)
-        if(vol > 500):
-            print("Recording Sound...")
-        else:
-            print("Silence..")
+        data = stream.read(CHUNK, exception_on_overflow = False)
         clientAudioSocket.sendall(data)
+        global QUIT
+        if QUIT:
+            break
 
 def RecieveAudio():
     while True:
         data = recvallAudio(BufferSize)
         stream.write(data)
+        global QUIT
+        if QUIT:
+            break
 
 def recvallAudio(size):
     databytes = b''
@@ -48,13 +50,15 @@ def recvallAudio(size):
 def SendFrame():
     while True:
         try:
-            frame = wvs.read()
-            cv2_im = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            _, frame = cap.read()
+            frame = cv2.flip(frame, 1)
             frame = cv2.resize(frame, (640, 480))
-            frame = np.array(frame, dtype = np.uint8).reshape(1, lnF)
-            jpg_as_text = bytearray(frame)
-
-            databytes = zlib.compress(jpg_as_text, 9)
+            cv2_im = cv2.cvtColor(frame, cv2.COLOR_BGR2BGRA)
+            is_success, im_buf_arr = cv2.imencode(".jpg", cv2_im)
+            databytes = im_buf_arr.tobytes()
+            cv2.imshow("Host", cv2_im)
+            if cv2.waitKey(1) == 27:
+                    cv2.destroyAllWindows()
             length = struct.pack('!I', len(databytes))
             bytesToBeSend = b''
             clientVideoSocket.sendall(length)
@@ -67,9 +71,12 @@ def SendFrame():
                     bytesToBeSend = databytes
                     clientVideoSocket.sendall(bytesToBeSend)
                     databytes = b''
-            print("##### Data Sent!! #####")
         except:
             continue
+        global QUIT
+        if QUIT:
+            break
+    
 
 
 def RecieveFrame():
@@ -78,19 +85,17 @@ def RecieveFrame():
             lengthbuf = recvallVideo(4)
             length, = struct.unpack('!I', lengthbuf)
             databytes = recvallVideo(length)
-            img = zlib.decompress(databytes)
             if len(databytes) == length:
-                print("Recieving Media..")
-                print("Image Frame Size:- {}".format(len(img)))
-                img = np.array(list(img))
-                img = np.array(img, dtype = np.uint8).reshape(480, 640, 3)
-                cv2.imshow("Stream", img)
+                nparr = np.frombuffer(databytes, np.uint8)
+                img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+                cv2.imshow("Client", img)
                 if cv2.waitKey(1) == 27:
                     cv2.destroyAllWindows()
-            else:
-                print("Data CORRUPTED")
         except:
             continue
+        global QUIT
+        if QUIT:
+            break
 
 
 def recvallVideo(size):
@@ -103,11 +108,34 @@ def recvallVideo(size):
             databytes += clientVideoSocket.recv(to_read)
     return databytes
 
+def end_call():
+  global CONTINUE
+  global QUIT
+  print('Good bye')
+  CONTINUE = False
+  cap.release()
+  cv2.destroyAllWindows()
+  stream.stop_stream()
+  stream.close()
+  QUIT = True
+  SendFrameThread.join()
+  SendAudioThread.join()
+  RecieveFrameThread.join()
+  RecieveAudioThread.join()
 
+
+root = Tk.Tk()
+
+# window = Tk.Tk()  #Makes main window
+root.wm_title("Video Call Controls")
+root.config(background="#FFFFFF")
+
+B_quit = Tk.Button(root, text = 'Quit', command = end_call)
+B_quit.grid(row=0, column=0, padx=10, pady=2)
 
 clientVideoSocket = socket(family=AF_INET, type=SOCK_STREAM)
 clientVideoSocket.connect((HOST, PORT_VIDEO))
-wvs = WebcamVideoStream(0).start()
+cap = cv2.VideoCapture(0)
 
 clientAudioSocket = socket(family=AF_INET, type=SOCK_STREAM)
 clientAudioSocket.connect((HOST, PORT_AUDIO))
@@ -117,8 +145,16 @@ stream=audio.open(format=FORMAT,channels=CHANNELS, rate=RATE, input=True, output
 
 initiation = clientVideoSocket.recv(5).decode()
 
+SendFrameThread = Thread(target=SendFrame)
+SendAudioThread = Thread(target=SendAudio)
+RecieveFrameThread = Thread(target=RecieveFrame)
+RecieveAudioThread = Thread(target=RecieveAudio)
+
 if initiation == "start":
-    SendFrameThread = Thread(target=SendFrame).start()
-    SendAudioThread = Thread(target=SendAudio).start()
-    RecieveFrameThread = Thread(target=RecieveFrame).start()
-    RecieveAudioThread = Thread(target=RecieveAudio).start()
+    SendFrameThread.start()
+    SendAudioThread.start()
+    RecieveFrameThread.start()
+    RecieveAudioThread.start()
+
+while CONTINUE:
+    root.update()
