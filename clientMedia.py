@@ -5,7 +5,7 @@ from threading import Thread
 import numpy as np
 import struct
 import tkinter as Tk
-import math,sys
+import math
 
 HOST = '52.21.167.84'
 PORT_VIDEO = 3000
@@ -38,6 +38,7 @@ AFILTERS = [
 ]
 
 # Video Filters
+
 def normal (image):
     return image
 
