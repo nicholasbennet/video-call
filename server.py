@@ -2,7 +2,7 @@ from socket import socket, AF_INET, SOCK_STREAM
 from threading import Thread
 import struct
 
-HOST = '172.16.1.55'
+HOST = 'Enter IP here'
 PORT_VIDEO = 3000
 PORT_AUDIO = 4000
 lnF = 640*480*3

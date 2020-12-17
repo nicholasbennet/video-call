@@ -7,7 +7,7 @@ import struct
 import tkinter as Tk
 import math
 
-HOST = '52.21.167.84'
+HOST = 'Enter IP here'
 PORT_VIDEO = 3000
 PORT_AUDIO = 4000
 
